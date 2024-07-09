@@ -8,47 +8,17 @@ library(cowplot)
 
 #### Data API Pulling functions ####
 
-# Function to see conferences
-get_conferences <- function(){
-  base_url <- "https://api.collegefootballdata.com/conferences"
-  
-  params = list()
-  
-  response <- GET(
-    url = base_url,
-    add_headers("Authorization" = "Bearer Y5gwJGQhtTGf3XMDieiO6TlTu8N7MvCQru29Gp48TqW68gO+nhY/U8CyU3lu/m3w"), 
-    accept_json()
-  )
-  
-  # Check if the request was successful
-  if (status_code(response) != 200) {
-    stop("Error: Unable to fetch data. Status code: ", status_code(response))
-  }
-  
-  # Parse the JSON response
-  data <- fromJSON(content(response, "text", encoding = "UTF-8"))
-  
-  # Convert to data.frame
-  output <- as.data.frame(data)
-  
-  # Return output
-  return(output)
-}
-
-
 # Team Records function
 get_team_records <- function(year = NULL, team = NULL, conference = NULL) {
-  # Base URL and endpoint
   base_url <- "https://api.collegefootballdata.com/records"
   
-  # Function to fetch data for a single conference
+  # Inner function to fetch data for a single conference
   fetch_data <- function(conference) {
-    params <- list()
-    if (!is.null(year)) params$year <- year
-    if (!is.null(team)) params$team <- team
-    params$conference <- conference
+    params <- list(year = year, team = team)
+    if (!is.null(conference) && nzchar(conference)) {
+      params$conference <- conference
+    }
     
-    # Make the GET request with the query parameters
     response <- GET(
       url = base_url,
       add_headers("Authorization" = "Bearer Y5gwJGQhtTGf3XMDieiO6TlTu8N7MvCQru29Gp48TqW68gO+nhY/U8CyU3lu/m3w"),
@@ -56,36 +26,24 @@ get_team_records <- function(year = NULL, team = NULL, conference = NULL) {
       accept_json()
     )
     
-    # Check if the request was successful
     if (status_code(response) != 200) {
-      # Print additional details about the error
       message("Error: Unable to fetch data. Status code: ", status_code(response))
       message("Response content: ", content(response, "text", encoding = "UTF-8"))
       stop("Request failed.")
     }
     
-    # Parse the JSON response
     data <- fromJSON(content(response, "text", encoding = "UTF-8"))
-    
-    # Convert to data.frame
-    output <- as.data.frame(data)
-    
-    return(output)
+    as.data.frame(data)
   }
   
-  # Fetch data for each conference and combine results
-  if (!is.null(conference)) {
-    if (is.vector(conference)) {
-      results <- lapply(conference, fetch_data)
-      output <- bind_rows(results)
-    } else {
-      output <- fetch_data(conference)
-    }
+  # Handle multiple conferences
+  if (!is.null(conference) && length(conference) > 0) {
+    results <- lapply(conference, fetch_data)
+    output <- bind_rows(results)
   } else {
-    output <- fetch_data(NULL)
+    output <- fetch_data(conference)
   }
   
-  # Return output
   return(output)
 }
 
@@ -293,10 +251,7 @@ get_team_stats <- function(year = NULL, team = NULL, conference = NULL){
 
 # Wrapper function
 cfb_API <- function(func, ...){
-  if (func == "get_conferences"){
-    output <- get_conferences(...)
-  }
-  else if (func == "get_team_records"){
+  if (func == "get_team_records"){
     output <- get_team_records(...)
   }
   else if (func == "get_game_results"){
@@ -416,9 +371,12 @@ plt5
 
 plot_grid(plt4, plt5, ncol = 2)
 
+# Tables
+ACCvsSEC <- cfb_API("get_team_records", year = "2020", conference = c("SEC", "ACC"))
 
+meanW_conf = aggregate(total$wins ~ conference, data = ACCvsSEC, FUN = mean)
+meanW_division = aggregate(total$wins ~ division, data = ACCvsSEC, FUN = mean)
 
-
-
-
+meanW_conf
+meanW_division
 
