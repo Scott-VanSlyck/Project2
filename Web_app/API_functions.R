@@ -1,7 +1,10 @@
+#### Packages ####
 library(httr)
 library(jsonlite)
 library(tidyverse)
 
+
+#### Data API Pulling functions ####
 
 # Function to see conferences
 get_conferences <- function(){
@@ -32,40 +35,60 @@ get_conferences <- function(){
 
 A = get_conferences()
 
-# Function to get team records
 get_team_records <- function(year = NULL, team = NULL, conference = NULL) {
   # Base URL and endpoint
   base_url <- "https://api.collegefootballdata.com/records"
   
-  # Query Parameter list
-  params <- list()
-  if (!is.null(year)) params$year <- year
-  if (!is.null(team)) params$team <- team
-  if (!is.null(conference)) params$conference <- conference
-  
-  
-  response <- GET(
-    url = base_url,
-    add_headers("Authorization" = "Bearer Y5gwJGQhtTGf3XMDieiO6TlTu8N7MvCQru29Gp48TqW68gO+nhY/U8CyU3lu/m3w"), 
-    accept_json()
-  )
-  
-  # Check if the request was successful
-  if (status_code(response) != 200) {
-    stop("Error: Unable to fetch data. Status code: ", status_code(response))
+  # Function to fetch data for a single conference
+  fetch_data <- function(conference) {
+    params <- list()
+    if (!is.null(year)) params$year <- year
+    if (!is.null(team)) params$team <- team
+    params$conference <- conference
+    
+    # Make the GET request with the query parameters
+    response <- GET(
+      url = base_url,
+      add_headers("Authorization" = "Bearer Y5gwJGQhtTGf3XMDieiO6TlTu8N7MvCQru29Gp48TqW68gO+nhY/U8CyU3lu/m3w"),
+      query = params,
+      accept_json()
+    )
+    
+    # Check if the request was successful
+    if (status_code(response) != 200) {
+      # Print additional details about the error
+      message("Error: Unable to fetch data. Status code: ", status_code(response))
+      message("Response content: ", content(response, "text", encoding = "UTF-8"))
+      stop("Request failed.")
+    }
+    
+    # Parse the JSON response
+    data <- fromJSON(content(response, "text", encoding = "UTF-8"))
+    
+    # Convert to data.frame
+    output <- as.data.frame(data)
+    
+    return(output)
   }
   
-  # Parse the JSON response
-  data <- fromJSON(content(response, "text", encoding = "UTF-8"))
-  
-  # Convert to data.frame
-  output <- as.data.frame(data)
+  # Fetch data for each conference and combine results
+  if (!is.null(conference)) {
+    if (is.vector(conference)) {
+      results <- lapply(conference, fetch_data)
+      output <- bind_rows(results)
+    } else {
+      output <- fetch_data(conference)
+    }
+  } else {
+    output <- fetch_data(NULL)
+  }
   
   # Return output
   return(output)
 }
 
-B = get_team_records(team = "NC State", year = "2023", conference = "ACC")
+# Example usage
+B <- get_team_records(year = "2023", team = "NC State", conference = "ACC")
 
 
 # Function to get game results
@@ -224,6 +247,117 @@ get_teams_talent <- function(year = NULL){
 
 F = get_teams_talent(year = "2023")
 
+get_team_stats <- function(year = NULL, team = NULL, conference = NULL){
+  # Base URL and endpoint
+  base_url <- "https://api.collegefootballdata.com/stats/season"
+  
+  # Function to fetch data for a single conference
+  fetch_data <- function(conference) {
+    params <- list()
+    if (!is.null(year)) params$year <- year
+    if (!is.null(team)) params$team <- team
+    params$conference <- conference
+    
+    # Make the GET request with the query parameters
+    response <- GET(
+      url = base_url,
+      add_headers("Authorization" = "Bearer Y5gwJGQhtTGf3XMDieiO6TlTu8N7MvCQru29Gp48TqW68gO+nhY/U8CyU3lu/m3w"),
+      query = params,
+      accept_json()
+    )
+    
+    # Check if the request was successful
+    if (status_code(response) != 200) {
+      # Print additional details about the error
+      message("Error: Unable to fetch data. Status code: ", status_code(response))
+      message("Response content: ", content(response, "text", encoding = "UTF-8"))
+      stop("Request failed.")
+    }
+    
+    # Parse the JSON response
+    data <- fromJSON(content(response, "text", encoding = "UTF-8"))
+    
+    # Convert to data.frame
+    output <- as.data.frame(data)
+    
+    return(output)
+  }
+  
+  # Fetch data for each conference and combine results
+  if (!is.null(conference)) {
+    if (is.vector(conference)) {
+      results <- lapply(conference, fetch_data)
+      output <- bind_rows(results)
+    } else {
+      output <- fetch_data(conference)
+    }
+  } else {
+    output <- fetch_data(NULL)
+  }
+  
+  # Return output
+  return(output)
+}
+
+G = get_team_stats(year = "2023", conference = c("ACC", "SEC", "B12", "B1G"))
+
+G = G %>% filter(statName == "netPassingYards" | statName == "passingTDs")
+
+G = G %>%
+  pivot_wider(names_from = statName, values_from = statValue)
+
+
+
+#### Summarizing Data ####
+# Tables
+table(E$conference)
+
+ACCvsSEC <- get_team_records(year = "2020", conference = c("SEC", "ACC"))
+
+meanW_conf = aggregate(total$wins ~ conference, data = ACCvsSEC, FUN = mean)
+meanW_division = aggregate(total$wins ~ division, data = ACCvsSEC, FUN = mean)
+
+meanW_conf
+meanW_division
+
+summary(ACCvsSEC)
+
+Summary(D)
+
+# Scatter Plot of Passing yards vs passing TD's by conference/ACC team
+ggplot(G, aes(x = netPassingYards, y = passingTDs, color = conference)) + 
+  geom_point(size = 4) + 
+  labs(title = "Passing Touchdowns vs Yards", x = "Passing Yards", y = "Passing Touchdowns") + 
+  theme_minimal()
+
+H = G %>% 
+  filter(conference == "ACC")
+
+ggplot(H, aes(x = netPassingYards, y = passingTDs, color = team)) + 
+  geom_point(size = 4) + 
+  labs(title = "Passing Touchdowns vs Yards by ACC team", x = "Passing Yards", y = "Passing Touchdowns") + 
+  theme_minimal()
+
+
+# Bar Plot
+Bardf = F %>%
+  left_join(E, by = "school")
+Bardf = Bardf[, -c(5,6,7)]
+
+Bardf = Bardf %>%
+  filter(year == "2023") %>%
+  drop_na(rank)
+
+Bardf$talent = as.numeric(Bardf$talent)
+
+Bardf = Bardf %>%
+  arrange(rank) %>%
+  head(10)
+
+ggplot(Bardf, aes(x = school, y = talent)) + 
+  geom_bar(stat = "identity", fill = "blue") + 
+  labs(title = "Top 10 in Final Rankings Talent by School", x = "School", y = "talent") + 
+  theme_minimal()
 
 
 
