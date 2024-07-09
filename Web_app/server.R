@@ -28,8 +28,8 @@ server <- function(input, output, session) {
              textInput("year", "Year", value = "2023"),
              textInput("team", "Team"),
              textInput("conference", "Conference"),
-             textInput("category", "Category", "e.g., Passing"),
-             textInput("statType", "Stat Type", "e.g., YDS")
+             textInput("category", "Category (e.g., passing, rushing, receiving)"),
+             textInput("statType", "Stat Type (e.g. yds, td")
            ),
            "get_APTOP25" = tagList(
              textInput("year", "Year", value = "2023")

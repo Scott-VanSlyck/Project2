@@ -99,7 +99,7 @@ get_player_stats <- function(year = NULL, team = NULL, conference = NULL, catego
   if (!is.null(category)) params$category <- category
   if (!is.null(statType)) statType <- toupper(statType)
   
-
+  
   response <- GET(
     url = base_url,
     add_headers("Authorization" = "Bearer Y5gwJGQhtTGf3XMDieiO6TlTu8N7MvCQru29Gp48TqW68gO+nhY/U8CyU3lu/m3w"),
