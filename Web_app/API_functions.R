@@ -2,6 +2,8 @@
 library(httr)
 library(jsonlite)
 library(tidyverse)
+library(reshape2)
+library(cowplot)
 
 
 #### Data API Pulling functions ####
@@ -33,8 +35,8 @@ get_conferences <- function(){
   return(output)
 }
 
-A = get_conferences()
 
+# Team Records function
 get_team_records <- function(year = NULL, team = NULL, conference = NULL) {
   # Base URL and endpoint
   base_url <- "https://api.collegefootballdata.com/records"
@@ -87,8 +89,6 @@ get_team_records <- function(year = NULL, team = NULL, conference = NULL) {
   return(output)
 }
 
-# Example usage
-B <- get_team_records(year = "2023", team = "NC State", conference = "ACC")
 
 
 # Function to get game results
@@ -127,11 +127,8 @@ get_game_results <- function(year = NULL, week = NULL, team = NULL, conference =
   return(output)
 }
 
-# Example usage
-C = get_game_results(year = "2022", week = "3", team = "NC State")
 
-
-# Function to get game results
+# Function to get player stats
 get_player_stats <- function(year = NULL, team = NULL, conference = NULL, category = NULL, statType = NULL) {
   # Base URL and endpoint
   base_url <- "https://api.collegefootballdata.com/stats/player/season"
@@ -175,9 +172,7 @@ get_player_stats <- function(year = NULL, team = NULL, conference = NULL, catego
 }
 
 
-D = get_player_stats(year = "2023", conference  = "ACC", category = "passing", statType = "yds")
-
-
+# Get Final Season Rankings
 get_APTOP25 <- function(year = NULL, week = NULL, seasonType = "postseason"){
   # Base URL and endpoint
   base_url <- "https://api.collegefootballdata.com/rankings"
@@ -213,9 +208,7 @@ get_APTOP25 <- function(year = NULL, week = NULL, seasonType = "postseason"){
   return(output)
 }
 
-E = get_APTOP25(year = "2023")
-
-
+# Get Teams Talent
 get_teams_talent <- function(year = NULL){
   base_url <- "https://api.collegefootballdata.com/talent"
   
@@ -245,8 +238,7 @@ get_teams_talent <- function(year = NULL){
   return(output)
 }
 
-F = get_teams_talent(year = "2023")
-
+# Get Team end of season stats
 get_team_stats <- function(year = NULL, team = NULL, conference = NULL){
   # Base URL and endpoint
   base_url <- "https://api.collegefootballdata.com/stats/season"
@@ -299,13 +291,130 @@ get_team_stats <- function(year = NULL, team = NULL, conference = NULL){
   return(output)
 }
 
-G = get_team_stats(year = "2023", conference = c("ACC", "SEC", "B12", "B1G"))
+# Wrapper function
+cfb_API <- function(func, ...){
+  if (func == "get_conferences"){
+    output <- get_conferences(...)
+  }
+  else if (func == "get_team_records"){
+    output <- get_team_records(...)
+  }
+  else if (func == "get_game_results"){
+    output <- get_game_results(...)
+  }
+  else if (func == "get_player_stats"){
+    output <- get_player_stats(...)
+  }
+  else if (func == "get_APTOP25"){
+    output <- get_APTOP25(...)
+  }
+  else if (func == "get_teams_talent"){
+    output <- get_teams_talent(...)
+  }
+  else if (func == "get_team_stats"){
+    output <- get_team_stats(...)
+  }
+  else {
+    stop("ERROR: Argument for func is not valid!")
+  }
+  
+  # Return the output from the appropriate function.
+  return(output)
+}
 
-G = G %>% filter(statName == "netPassingYards" | statName == "passingTDs")
 
-G = G %>%
-  pivot_wider(names_from = statName, values_from = statValue)
+#### Sum Data New ####
+ACC_records = cfb_API("get_team_records", year = "2023", conference = "ACC")
 
+ACC_records = ACC_records %>%
+  mutate(Homewinpct = homeGames$wins / homeGames$games, Awaywinpct = awayGames$wins/ awayGames$games,
+         winpct = total$wins / total$games, WPOE = total$wins / expectedWins)
+
+plt1 = ggplot(ACC_records, aes(x = Homewinpct, y = Awaywinpct, color = winpct)) + 
+  geom_point(size = 4) +
+  geom_smooth(method = lm, formula = y~x, color = "black") + 
+  scale_color_gradient(low = "blue", high = "red") + 
+  theme(legend.position = "none") + 
+  labs(title = "Home vs Away win percentages for ACC teams", x = "Home Win Percentage", y = "Away Win Percentage")
+plt1
+
+ACC_records = ACC_records %>%
+  mutate(team = fct_reorder(team, WPOE))
+
+plt2 = ggplot(ACC_records, aes(x = team, y = WPOE, fill = winpct)) + 
+  geom_bar(stat = "identity") + 
+  labs(title = "Win Percentage Over Expected (WPOE) by ACC Team", x = "Team", y = "WPOE") + 
+  scale_fill_gradient(low = "blue", high = "red") + 
+  theme_minimal() + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+plt2
+
+
+
+SEC_Passing = cfb_API("get_player_stats", year = "2023", conference = "SEC", category = "passing", statType = "yds")
+
+
+SEC_Passing = SEC_Passing %>%
+  filter(stat >= 50)
+
+plt3 = ggplot(SEC_Passing, aes(x = stat)) + 
+  geom_histogram(color = "#004b8d", fill = "#ffd046", bins = 5) + 
+  labs(title = "SEC Player Passing Yards (min 50 yards) in 2023", x = "Passing Yards") + 
+  theme_minimal()
+plt3
+
+
+team = cfb_API("get_team_stats", year = "2023", conference = c("ACC", "B12", "B1G", "SEC", "PAC"))
+
+mean_stats_conf = team %>%
+  group_by(conference, statName) %>%
+  summarize(mean_stat = mean(statValue, na.rm = TRUE)) %>%
+  mutate(mean_stat = format(mean_stat, scientific = FALSE, digits = 4)) %>%
+  arrange(statName)
+
+mean_stats_conf = mean_stats_conf[-c(26:30),]
+
+mean_stats_conf = mean_stats_conf %>%
+  pivot_wider(names_from = statName, values_from = mean_stat)
+
+Off_mean_conf = mean_stats_conf[, c(1:3, 13:17, 20, 24:26, 31)]
+
+def_mean_conf = mean_stats_conf[, c(1, 6:9, 27, 28)]
+
+
+off_melt = melt(Off_mean_conf, id.vars = "conference")
+off_melt$value = as.numeric(off_melt$value)
+
+off_melt <- off_melt %>%
+  group_by(variable) %>%
+  mutate(scaled_value = scales::rescale(value))
+
+plt4 <- ggplot(off_melt, aes(x = variable, y = conference, fill = scaled_value)) + 
+  geom_tile() +
+  scale_fill_gradient(low = "white", high = "red") +
+  labs(title = "Mean Statistics by Conference", x = "Statistic", y = "Conference") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+plt4
+
+def_melt = melt(def_mean_conf, id.vars = "conference")
+def_melt$value = as.numeric(def_melt$value)
+
+def_melt <- def_melt %>%
+  group_by(variable) %>%
+  mutate(scaled_value = scales::rescale(value))
+
+plt5 <- ggplot(def_melt, aes(x = variable, y = conference, fill = scaled_value)) + 
+  geom_tile() +
+  scale_fill_gradient(low = "white", high = "red") +
+  labs(title = "Mean Statistics by Conference", x = "Statistic", y = "Conference") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+plt5
+
+plot_grid(plt4, plt5, ncol = 2)
 
 
 #### Summarizing Data ####
@@ -323,43 +432,6 @@ meanW_division
 summary(ACCvsSEC)
 
 Summary(D)
-
-# Scatter Plot of Passing yards vs passing TD's by conference/ACC team
-ggplot(G, aes(x = netPassingYards, y = passingTDs, color = conference)) + 
-  geom_point(size = 4) + 
-  labs(title = "Passing Touchdowns vs Yards", x = "Passing Yards", y = "Passing Touchdowns") + 
-  theme_minimal()
-
-H = G %>% 
-  filter(conference == "ACC")
-
-ggplot(H, aes(x = netPassingYards, y = passingTDs, color = team)) + 
-  geom_point(size = 4) + 
-  labs(title = "Passing Touchdowns vs Yards by ACC team", x = "Passing Yards", y = "Passing Touchdowns") + 
-  theme_minimal()
-
-
-# Bar Plot
-Bardf = F %>%
-  left_join(E, by = "school")
-Bardf = Bardf[, -c(5,6,7)]
-
-Bardf = Bardf %>%
-  filter(year == "2023") %>%
-  drop_na(rank)
-
-Bardf$talent = as.numeric(Bardf$talent)
-
-Bardf = Bardf %>%
-  arrange(rank) %>%
-  head(10)
-
-ggplot(Bardf, aes(x = school, y = talent)) + 
-  geom_bar(stat = "identity", fill = "blue") + 
-  labs(title = "Top 10 in Final Rankings Talent by School", x = "School", y = "talent") + 
-  theme_minimal()
-
-
 
 
 
