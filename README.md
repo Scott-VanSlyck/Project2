@@ -18,4 +18,4 @@ sapply(packages, install_if_missing)
 
 Code to run repo:
 
-shiny::runGitHub(repo = "Project2", username = "Scott-VanSlyck")
+shiny::runGitHub(repo = "Project2", username = "Scott-VanSlyck", subdir = "Web_app")
