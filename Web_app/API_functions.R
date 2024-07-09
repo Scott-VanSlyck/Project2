@@ -417,21 +417,7 @@ plt5
 plot_grid(plt4, plt5, ncol = 2)
 
 
-#### Summarizing Data ####
-# Tables
-table(E$conference)
 
-ACCvsSEC <- get_team_records(year = "2020", conference = c("SEC", "ACC"))
-
-meanW_conf = aggregate(total$wins ~ conference, data = ACCvsSEC, FUN = mean)
-meanW_division = aggregate(total$wins ~ division, data = ACCvsSEC, FUN = mean)
-
-meanW_conf
-meanW_division
-
-summary(ACCvsSEC)
-
-Summary(D)
 
 
 
