@@ -10,7 +10,7 @@ source("API_functions.R")  # Make sure this includes get_teams_data()
 
 server <- function(input, output, session) {
   
-  # Dynamically generate input fields based on the selected data function
+  # Generates input fields based on which function is chosen
   output$additional_inputs <- renderUI({
     switch(input$data_function,
            "get_team_records" = tagList(
@@ -47,12 +47,12 @@ server <- function(input, output, session) {
   
   # Reactive expression to load the teams data for Data Exploration
   teams_data <- reactive({
-    get_teams_data()  # This function needs to be defined in API_functions.R
+    get_teams_data()  
   })
   
   # Handle data fetching based on selected API function
   observeEvent(input$query_data, {
-    req(input$data_function)  # Ensure a function is selected
+    req(input$data_function)  
     
     # Build parameters selectively based on the selected data function
     params <- list(year = input$year)
