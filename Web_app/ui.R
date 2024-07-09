@@ -25,7 +25,7 @@ ui <- dashboardPage(
               p("The data is sourced from the College Football Data API. For more information, visit:"),
               tags$a(href = "https://collegefootballdata.com/", "College Football Data API"),
               br(), br(),
-              img(src = "https://example.com/college_football_image.jpg", height = "200px")
+              img(src = "https://seeklogo.com/images/N/ncaa-football-logo-36487E0FA2-seeklogo.com.png", height = "200px")
       ),
       
       # Data Download tab content

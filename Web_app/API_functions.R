@@ -380,3 +380,10 @@ meanW_division = aggregate(total$wins ~ division, data = ACCvsSEC, FUN = mean)
 meanW_conf
 meanW_division
 
+# Interactive Data Exploration
+get_teams_data <- function() {
+  team <- cfb_API("get_team_stats", year = "2023", conference = c("ACC", "B12", "B1G", "SEC", "PAC"))
+  team <- team %>%
+    pivot_wider(names_from = statName, values_from = statValue)
+  return(team)
+}

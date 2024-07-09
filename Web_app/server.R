@@ -6,7 +6,7 @@ library(jsonlite)
 library(tidyverse)
 library(DT)
 
-source("API_functions.R")
+source("API_functions.R")  # Make sure this includes get_teams_data()
 
 server <- function(input, output, session) {
   
@@ -43,6 +43,11 @@ server <- function(input, output, session) {
              textInput("conference", "Conference")
            )
     )
+  })
+  
+  # Reactive expression to load the teams data for Data Exploration
+  teams_data <- reactive({
+    get_teams_data()  # This function needs to be defined in API_functions.R
   })
   
   # Handle data fetching based on selected API function
@@ -95,20 +100,19 @@ server <- function(input, output, session) {
       write.csv(data(), file, row.names = FALSE)
     }
   )
-  # Observe changes in data to update variable selection inputs dynamically
+  
+  # Observe changes in teams_data to update variable selection inputs dynamically
   observe({
-    data <- data()  # Assuming 'data' is your reactive data source from API
-    updateSelectInput(session, "x_var", choices = names(data))
-    updateSelectInput(session, "y_var", choices = names(data))
-    updateSelectInput(session, "facet_var", choices = c("None" = "", names(data)))
+    updateSelectInput(session, "x_var", choices = names(teams_data()))
+    updateSelectInput(session, "y_var", choices = names(teams_data()))
+    updateSelectInput(session, "facet_var", choices = c("None" = "", names(teams_data())))
   })
   
   # Generate plot based on user input
   output$plot_output <- renderPlot({
     req(input$x_var, input$y_var)
-    data <- data()  # Assuming 'data' is your reactive data source from API
-    p <- ggplot(data, aes_string(x = input$x_var, y = input$y_var)) +
-      geom_point()  # Default to scatter plot
+    data <- teams_data()  # Use the reactive teams_data
+    p <- ggplot(data, aes_string(x = input$x_var, y = input$y_var)) + geom_point()
     
     if (input$plot_type == "bar") {
       p <- ggplot(data, aes_string(x = input$x_var, fill = input$y_var)) + geom_bar(stat = "count")
@@ -116,7 +120,7 @@ server <- function(input, output, session) {
       p <- ggplot(data, aes_string(x = input$x_var)) + geom_histogram()
     }
     
-    if (input$facet_var != "") {
+    if (input$facet_var != "None") {
       p <- p + facet_wrap(~ get(input$facet_var), scales = "free")
     }
     
@@ -125,7 +129,6 @@ server <- function(input, output, session) {
   
   # Data summary output
   output$summary_output <- renderDataTable({
-    data <- data()  # Assuming 'data' is your reactive data source from API
-    datatable(data)
+    datatable(teams_data(), options = list(scrollX = TRUE))
   })
 }
